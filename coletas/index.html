@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coletas Improdutivas · PortoEX</title>
+<link rel="icon" type="image/png" href="../assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#0B0B3C;
+    --navy-light:#17175a;
+    --orange:#FF6428;
+    --orange-light:#E9541B;
+    --bg:#F3F4F8;
+    --card:#ffffff;
+    --text:#1C1E2B;
+    --muted:#6B7080;
+    --border:#E3E5EE;
+    --red:#d94848;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Montserrat', sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;}
+  .hidden{display:none !important;}
+
+  /* ---------- Login ---------- */
+  #login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:20px;}
+  .login-box{background:#fff; border-radius:8px; padding:34px 30px; width:100%; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .login-box img{display:block; height:90px; width:auto; max-width:100%; margin:0 auto 10px;}
+  .login-box h2{text-align:center; margin:0 0 22px; font-size:16px; color:var(--navy);}
+  .login-box .field{margin-bottom:14px;}
+  .login-box label{display:block; font-size:12.5px; font-weight:600; color:var(--navy); margin-bottom:5px;}
+  .login-box input{width:100%; padding:10px 11px; border:1px solid var(--border); border-radius:4px; font-size:14px; font-family:inherit;}
+  .login-box input:focus{outline:none; border-color:var(--orange);}
+  .btn-login{width:100%; margin-top:6px; padding:11px 0; background:var(--orange); color:#fff; border:none; border-radius:4px; font-family:inherit; font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn-login:hover{background:var(--orange-light);}
+  .btn-login:disabled{opacity:.6; cursor:default;}
+  .login-error{color:var(--red); font-size:13px; margin:-6px 0 14px; min-height:16px;}
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--navy); color:#fff; padding:24px clamp(16px,3vw,32px);
+    display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px;
+    border-bottom:4px solid var(--orange);
+  }
+  header .brand{display:flex; flex-direction:column; gap:4px;}
+  header .brand img{height:60px; width:auto; align-self:flex-start; margin-bottom:10px;}
+  header h1{margin:0; font-size:22px; font-weight:700;}
+  header p{margin:2px 0 0; font-size:13px; color:#c7cae8; font-family:'Poppins',sans-serif;}
+  .head-right{text-align:right; font-family:'Poppins',sans-serif; font-size:12px; color:#c7cae8;}
+  .btn-logout{margin-top:8px; padding:6px 12px; border:1px solid rgba(255,255,255,.3); border-radius:4px; background:transparent; color:#c7cae8; font-family:'Montserrat',sans-serif; font-size:12px; font-weight:600; cursor:pointer;}
+  .btn-logout:hover{border-color:#fff; color:#fff;}
+
+  .container{padding:24px clamp(16px,3vw,32px) 60px; max-width:1500px; margin:0 auto;}
+
+  .kpis{display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:24px;}
+  @media(max-width:1200px){.kpis{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:560px){.kpis{grid-template-columns:1fr;}}
+  .kpi{background:var(--card); border-radius:8px; padding:18px 20px; border:1px solid var(--border);}
+  .kpi .label{font-size:12.5px; color:var(--muted); font-weight:600;}
+  .kpi .value{font-size:26px; font-weight:800; color:var(--navy); margin-top:6px; font-family:'Poppins',sans-serif;}
+  .kpi .sub{font-size:12px; color:var(--muted); margin-top:4px;}
+  .kpi.accent{border-top:4px solid var(--orange);}
+  .kpi.accent .value{color:var(--orange);}
+
+  .filters{background:var(--card); border-radius:8px; padding:16px 20px; border:1px solid var(--border); display:flex; gap:14px; flex-wrap:wrap; align-items:end; margin-bottom:24px;}
+  .filters .field{display:flex; flex-direction:column; gap:5px;}
+  .filters label{font-size:12px; font-weight:600; color:var(--muted);}
+  .filters select, .filters input{padding:8px 10px; border-radius:4px; border:1px solid var(--border); font-size:13.5px; min-width:150px; background:#fff; color:var(--text); font-family:inherit;}
+  .btn{padding:9px 16px; border-radius:4px; border:none; font-weight:700; font-size:13.5px; cursor:pointer; font-family:inherit;}
+  .btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px;}
+  .btn-orange{background:var(--orange); color:#fff;}
+  .btn-orange:hover{background:var(--orange-light);}
+  .btn-orange:disabled{opacity:.6; cursor:default;}
+  .btn-navy{background:var(--navy); color:#fff;}
+  .btn-navy:hover{background:var(--navy-light);}
+  .btn-ghost{background:#fff; color:var(--navy); border:1px solid var(--border);}
+  .btn-ghost:hover{background:#f0f1f7;}
+
+  .grid-charts{display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:20px;}
+  @media(max-width:1100px){.grid-charts{grid-template-columns:1fr;}}
+  .grid-charts2{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px;}
+  @media(max-width:1100px){.grid-charts2{grid-template-columns:1fr;}}
+  .card{background:var(--card); border-radius:8px; padding:18px 20px; border:1px solid var(--border);}
+  .card h3{margin:0 0 12px; font-size:15px; color:var(--navy); font-weight:700;}
+  .card canvas{max-height:280px;}
+
+  .section-title{display:flex; align-items:center; justify-content:space-between; margin:30px 0 14px;}
+  .section-title h2{font-size:17px; color:var(--navy); margin:0;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{background:var(--navy); color:#fff; text-align:left; padding:10px 12px; font-weight:600; position:sticky; top:0; white-space:nowrap;}
+  td{padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top;}
+  tr:hover td{background:#f8f8fd;}
+  .table-wrap{max-height:480px; overflow:auto; border-radius:8px; border:1px solid var(--border); background:#fff;}
+  .tag{padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap; display:inline-block;}
+  .row-del{background:none; border:none; color:var(--red); cursor:pointer; font-size:15px;}
+  .warn{color:var(--red); font-weight:700;}
+
+  .modal-bg{display:none; position:fixed; inset:0; background:rgba(11,11,60,0.45); z-index:50; align-items:center; justify-content:center;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff; border-radius:8px; padding:26px 28px; width:560px; max-width:92vw; max-height:88vh; overflow:auto;}
+  .modal h2{margin:0 0 16px; color:var(--navy); font-size:19px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px;}
+  .form-grid .full{grid-column:1/-1;}
+  .form-grid label{font-size:12.5px; font-weight:600; color:var(--muted); display:block; margin-bottom:4px;}
+  .form-grid input, .form-grid select, .form-grid textarea{width:100%; padding:9px 10px; border-radius:4px; border:1px solid var(--border); font-size:13.5px; font-family:inherit;}
+  .form-grid textarea{resize:vertical; min-height:60px;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:20px;}
+
+  .empty{padding:30px; text-align:center; color:var(--muted);}
+  footer{text-align:center; color:var(--muted); font-size:12px; padding:20px;}
+  .toast{position:fixed; bottom:24px; right:24px; background:var(--navy); color:#fff; padding:12px 18px; border-radius:6px; font-size:13.5px; box-shadow:0 4px 14px rgba(0,0,0,.2); display:none; z-index:60;}
+  .toast.show{display:block;}
+</style>
+</head>
+<body>
+
+<!-- ---------- Login ---------- -->
+<div id="login-screen" class="hidden">
+  <div class="login-box">
+    <img src="../assets/logo.png" alt="PortoEX">
+    <h2>Coletas Improdutivas</h2>
+    <div class="field"><label for="login-email">E-mail</label><input type="email" id="login-email" placeholder="seu.email@portoex.com.br" autocomplete="username"></div>
+    <div class="field"><label for="login-senha">Senha</label><input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password"></div>
+    <div class="login-error" id="login-error"></div>
+    <button class="btn-login" id="btn-login" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app-content" class="hidden">
+<header>
+  <div class="brand">
+    <img src="../assets/logo-branco.png" alt="PortoEX">
+    <h1>Coletas Improdutivas</h1>
+    <p>Painel de acompanhamento e registro</p>
+  </div>
+  <div class="head-right">
+    <div id="lastUpdate"></div>
+    <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="kpis" id="kpiRow"></div>
+
+  <div class="filters">
+    <div class="field"><label>Mês</label><select id="fMes"><option value="">Todos</option></select></div>
+    <div class="field"><label>Motorista</label><select id="fMotorista"><option value="">Todos</option></select></div>
+    <div class="field"><label>Cidade</label><select id="fCidade"><option value="">Todas</option></select></div>
+    <div class="field"><label>Causa</label><select id="fCausa"><option value="">Todas</option></select></div>
+    <div class="field"><label>Cliente</label><input type="text" id="fCliente" placeholder="Buscar cliente..."></div>
+    <button class="btn btn-ghost" onclick="resetFilters()">Limpar filtros</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-orange" onclick="openModal()">+ Registrar coleta improdutiva</button>
+    <button class="btn btn-navy" onclick="exportJSON()">Exportar JSON</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">Exportar CSV</button>
+  </div>
+
+  <div class="grid-charts">
+    <div class="card"><h3>Evolução mensal de coletas improdutivas</h3><canvas id="chartMensal"></canvas></div>
+    <div class="card"><h3>Distribuição por causa</h3><canvas id="chartCausa"></canvas></div>
+  </div>
+  <div class="grid-charts2">
+    <div class="card"><h3>Top 10 clientes com mais ocorrências</h3><canvas id="chartCliente"></canvas></div>
+    <div class="card"><h3>Top 10 motoristas envolvidos</h3><canvas id="chartMotorista"></canvas></div>
+  </div>
+  <div class="grid-charts2">
+    <div class="card"><h3>Ocorrências por cidade</h3><canvas id="chartCidade"></canvas></div>
+    <div class="card"><h3>Tempo médio de espera por causa (min)</h3><canvas id="chartTempo"></canvas></div>
+  </div>
+
+  <div class="section-title"><h2>Registros detalhados (<span id="countRegistros">0</span>)</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Motorista</th><th>Placa</th><th>Chegada</th><th>Saída</th>
+        <th>Espera</th><th>Cliente</th><th>Cidade</th><th>Serviço</th><th>Causa</th><th>Observação</th><th></th>
+      </tr></thead>
+      <tbody id="tbody"><tr><td colspan="12" class="empty">Carregando registros…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>PortoEX Transportes · Coletas Improdutivas</footer>
+</div>
+
+<!-- ---------- Modal ---------- -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>Registrar coleta improdutiva</h2>
+    <div class="form-grid">
+      <div><label>Data</label><input type="date" id="mData"></div>
+      <div><label>Motorista</label><input type="text" id="mMotorista" placeholder="Nome do motorista" list="lstMotoristas"></div>
+      <div><label>Placa</label><input type="text" id="mPlaca" placeholder="AAA0A00"></div>
+      <div><label>Serviço</label>
+        <select id="mServico"><option>ECONÔMICO</option><option>EXPRESSO</option><option>PERSONALIZADO</option></select>
+      </div>
+      <div><label>Horário de chegada</label><input type="time" id="mChegada"></div>
+      <div><label>Horário de saída</label><input type="time" id="mSaida"></div>
+      <div><label>Cliente</label><input type="text" id="mCliente" placeholder="Nome do cliente" list="lstClientes"></div>
+      <div><label>Cidade</label><input type="text" id="mCidade" placeholder="Cidade - UF" list="lstCidades"></div>
+      <div class="full"><label>Causa</label>
+        <select id="mCausa">
+          <option>Armazém não liberou</option><option>Sem demanda</option><option>Cancelada</option>
+          <option>Não coube no veículo</option><option>Cliente ausente/fechado</option><option>Erro de programação</option>
+          <option>Mercadoria não pronta</option><option>Outra transportadora coletou</option><option>Demora no atendimento</option>
+          <option>Erro operação cliente</option><option>Erro de endereço</option><option>Outros</option>
+        </select>
+      </div>
+      <div class="full"><label>Observação</label><textarea id="mObs" placeholder="Detalhe o motivo da coleta improdutiva..."></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-orange" id="btnSalvar" onclick="saveRecord()">Salvar registro</button>
+    </div>
+  </div>
+</div>
+<datalist id="lstMotoristas"></datalist><datalist id="lstClientes"></datalist><datalist id="lstCidades"></datalist>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- Supabase (mesmo projeto do Veículos Voltando Vazios, tabela própria) ----------
+const SUPABASE_URL = 'https://qjvxabkocexzkutzqbpl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqdnhhYmtvY2V4emt1dHpxYnBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTQyOTUsImV4cCI6MjEwNDQzMDI5NX0.AgYsG7AprAq7prKJ52lIfAcXw9lhzqr4z16tFSjpnH8';
+const TABELA = 'coletas_improdutivas';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let DATA = [];
+let charts = {};
+let appIniciado = false;
+
+// ---------- utilidades ----------
+function toMinutes(hhmm){ const [h,m] = hhmm.split(':').map(Number); return h*60+m; }
+function waitMinutes(chegada, saida){ let diff = toMinutes(saida)-toMinutes(chegada); if(diff<0) diff += 24*60; return diff; }
+function fmtMin(min){ const h = Math.floor(min/60), m = Math.round(min%60); return (h>0? h+'h ':'') + m + 'min'; }
+function parseDateBR(d){ const [dd,mm,yyyy] = d.split('/').map(Number); return new Date(yyyy, mm-1, dd); }
+function isoToBR(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function monthKey(d){
+  const dt = parseDateBR(d);
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return meses[dt.getMonth()] + '/' + String(dt.getFullYear()).slice(2);
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function doBanco(r){
+  const chegada = String(r.chegada).slice(0,5), saida = String(r.saida).slice(0,5);
+  return { id:r.id, data:isoToBR(r.data), motorista:r.motorista, placa:r.placa, chegada, saida,
+           cliente:r.cliente, cidade:r.cidade, servico:r.servico, causa:r.causa, obs:r.obs||'',
+           espera: waitMinutes(chegada, saida), virouDia: toMinutes(saida) < toMinutes(chegada) };
+}
+
+// ---------- login ----------
+async function fazerLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const btn = document.getElementById('btn-login');
+  const erro = document.getElementById('login-error');
+  erro.textContent = '';
+  if(!email || !senha){ erro.textContent = 'Preencha e-mail e senha.'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if(error){ erro.textContent = 'E-mail ou senha incorretos.'; return; }
+  iniciarApp();
+}
+async function fazerLogout(){
+  await sb.auth.signOut();
+  mostrarLogin();
+}
+function mostrarLogin(){
+  document.getElementById('app-content').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-senha').value = '';
+}
+async function iniciarApp(){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-content').classList.remove('hidden');
+  if(!appIniciado){ appIniciado = true; ligarFiltros(); }
+  await carregarDados();
+}
+
+// ---------- dados ----------
+async function carregarDados(){
+  try{
+    let todos = [], de = 0; const passo = 1000;
+    while(true){
+      const { data, error } = await sb.from(TABELA).select('*').order('data',{ascending:true}).order('id',{ascending:true}).range(de, de+passo-1);
+      if(error) throw error;
+      todos = todos.concat(data);
+      if(data.length < passo) break;
+      de += passo;
+    }
+    DATA = todos.map(doBanco);
+  }catch(err){
+    console.error(err);
+    showToast('Não foi possível carregar os registros. Verifique a conexão e recarregue a página.');
+    DATA = [];
+  }
+  populateFilters();
+  render();
+}
+
+const CAUSA_COLORS = {
+  'Armazém não liberou':'#FF6428', 'Sem demanda':'#0B0B3C', 'Cancelada':'#d94848',
+  'Não coube no veículo':'#8a5cf6', 'Cliente ausente/fechado':'#0ea5b7', 'Erro de programação':'#eab308',
+  'Mercadoria não pronta':'#f59e0b', 'Outra transportadora coletou':'#64748b', 'Demora no atendimento':'#e11d48',
+  'Erro operação cliente':'#059669', 'Erro de endereço':'#7c3aed', 'Outros':'#94a3b8'
+};
+
+function populateFilters(){
+  const meses = []; [...DATA].sort((a,b)=>parseDateBR(a.data)-parseDateBR(b.data)).forEach(d=>{ const k=monthKey(d.data); if(!meses.includes(k)) meses.push(k); });
+  const uniq = k => [...new Set(DATA.map(d=>d[k]))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  fillSelect('fMes', meses);
+  fillSelect('fMotorista', uniq('motorista'));
+  fillSelect('fCidade', uniq('cidade'));
+  fillSelect('fCausa', uniq('causa'));
+  fillList('lstMotoristas', uniq('motorista'));
+  fillList('lstClientes', uniq('cliente'));
+  fillList('lstCidades', uniq('cidade'));
+}
+function fillSelect(id, arr){
+  const sel = document.getElementById(id);
+  const current = sel.value, primeiro = sel.options[0].text;
+  sel.innerHTML = '<option value="">'+primeiro+'</option>' + arr.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  sel.value = arr.includes(current) ? current : '';
+}
+function fillList(id, arr){ document.getElementById(id).innerHTML = arr.map(v=>`<option value="${esc(v)}">`).join(''); }
+
+function getFiltered(){
+  const mes = fMes.value, mot = fMotorista.value, cid = fCidade.value, cau = fCausa.value, cli = fCliente.value.toLowerCase();
+  return DATA.filter(d=>{
+    if(mes && monthKey(d.data)!==mes) return false;
+    if(mot && d.motorista!==mot) return false;
+    if(cid && d.cidade!==cid) return false;
+    if(cau && d.causa!==cau) return false;
+    if(cli && !d.cliente.toLowerCase().includes(cli)) return false;
+    return true;
+  });
+}
+
+function render(){
+  const f = getFiltered();
+  renderKPIs(f); renderTable(f); renderCharts(f);
+  document.getElementById('lastUpdate').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
+}
+
+function topDe(f, campo){
+  const c = {}; f.forEach(d=>c[d[campo]]=(c[d[campo]]||0)+1);
+  return Object.entries(c).sort((a,b)=>b[1]-a[1]);
+}
+function renderKPIs(f){
+  const total = f.length;
+  const avgWait = total? Math.round(f.reduce((s,d)=>s+d.espera,0)/total) : 0;
+  const topCausa = topDe(f,'causa')[0], topMot = topDe(f,'motorista')[0], topCli = topDe(f,'cliente')[0];
+  const kpis = [
+    {label:'Total de coletas improdutivas', value:total, sub:'registros no período filtrado', accent:true},
+    {label:'Tempo médio de espera', value: fmtMin(avgWait), sub:'por ocorrência'},
+    {label:'Principal causa', value: topCausa? topCausa[0]:'-', sub: topCausa? topCausa[1]+' ocorrências':''},
+    {label:'Motorista mais afetado', value: topMot? topMot[0]:'-', sub: topMot? topMot[1]+' ocorrências':''},
+    {label:'Cliente mais recorrente', value: topCli? topCli[0]:'-', sub: topCli? topCli[1]+' ocorrências':''},
+  ];
+  document.getElementById('kpiRow').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.accent?'accent':''}">
+      <div class="label">${k.label}</div>
+      <div class="value" style="font-size:${String(k.value).length>14?'16px':'26px'}">${esc(k.value)}</div>
+      <div class="sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+function renderTable(f){
+  document.getElementById('countRegistros').textContent = f.length;
+  const tbody = document.getElementById('tbody');
+  if(f.length===0){
+    tbody.innerHTML = `<tr><td colspan="12" class="empty">${DATA.length? 'Nenhum registro encontrado para os filtros selecionados.' : 'Nenhum registro ainda. Use "+ Registrar coleta improdutiva" para lançar o primeiro.'}</td></tr>`;
+    return;
+  }
+  const sorted = [...f].sort((a,b)=>parseDateBR(b.data)-parseDateBR(a.data) || b.id-a.id);
+  tbody.innerHTML = sorted.map(d=>`
+    <tr>
+      <td>${d.data}</td><td>${esc(d.motorista)}</td><td>${esc(d.placa)}</td><td>${d.chegada}</td><td>${d.saida}</td>
+      <td${d.virouDia?' class="warn" title="Saída antes da chegada: confira os horários"':''}>${fmtMin(d.espera)}</td>
+      <td>${esc(d.cliente)}</td><td>${esc(d.cidade)}</td><td>${esc(d.servico)}</td>
+      <td><span class="tag" style="background:${CAUSA_COLORS[d.causa]||'#999'}22; color:${CAUSA_COLORS[d.causa]||'#999'}">${esc(d.causa)}</span></td>
+      <td style="max-width:260px;">${esc(d.obs)}</td>
+      <td><button class="row-del" onclick="deleteRecord(${d.id})" title="Excluir registro">✕</button></td>
+    </tr>`).join('');
+}
+
+function renderCharts(f){
+  const mesesOrdem = [];
+  [...DATA].sort((a,b)=>parseDateBR(a.data)-parseDateBR(b.data)).forEach(d=>{ const mk=monthKey(d.data); if(!mesesOrdem.includes(mk)) mesesOrdem.push(mk); });
+  const mensalCount = {}; f.forEach(d=>{ const mk=monthKey(d.data); mensalCount[mk]=(mensalCount[mk]||0)+1; });
+  drawChart('chartMensal','line',{
+    labels: mesesOrdem,
+    datasets:[{ label:'Ocorrências', data: mesesOrdem.map(m=>mensalCount[m]||0),
+      borderColor:'#FF6428', backgroundColor:'rgba(255,100,40,0.15)', fill:true, tension:.35, pointBackgroundColor:'#0B0B3C', pointRadius:4 }]
+  },{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}}});
+
+  const causas = topDe(f,'causa');
+  drawChart('chartCausa','doughnut',{
+    labels: causas.map(c=>c[0]),
+    datasets:[{ data: causas.map(c=>c[1]), backgroundColor: causas.map(c=>CAUSA_COLORS[c[0]]||'#999') }]
+  },{plugins:{legend:{position:'right', labels:{boxWidth:12, font:{size:10.5}}}}});
+
+  const cliTop = topDe(f,'cliente').slice(0,10);
+  drawChart('chartCliente','bar',{ labels: cliTop.map(c=>c[0]), datasets:[{ label:'Ocorrências', data: cliTop.map(c=>c[1]), backgroundColor:'#0B0B3C', borderRadius:5 }]},
+    {indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true, ticks:{precision:0}}}});
+
+  const motTop = topDe(f,'motorista').slice(0,10);
+  drawChart('chartMotorista','bar',{ labels: motTop.map(c=>c[0]), datasets:[{ label:'Ocorrências', data: motTop.map(c=>c[1]), backgroundColor:'#FF6428', borderRadius:5 }]},
+    {indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true, ticks:{precision:0}}}});
+
+  const cidTop = topDe(f,'cidade').slice(0,10);
+  drawChart('chartCidade','bar',{ labels: cidTop.map(c=>c[0]), datasets:[{ label:'Ocorrências', data: cidTop.map(c=>c[1]), backgroundColor:'#0ea5b7', borderRadius:5 }]},
+    {plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}}});
+
+  const soma = {}, qtd = {};
+  f.forEach(d=>{ soma[d.causa]=(soma[d.causa]||0)+d.espera; qtd[d.causa]=(qtd[d.causa]||0)+1; });
+  const media = Object.keys(soma).map(c=>[c, Math.round(soma[c]/qtd[c])]).sort((a,b)=>b[1]-a[1]);
+  drawChart('chartTempo','bar',{ labels: media.map(c=>c[0]), datasets:[{ label:'Minutos', data: media.map(c=>c[1]), backgroundColor: media.map(c=>CAUSA_COLORS[c[0]]||'#999'), borderRadius:5 }]},
+    {plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}});
+}
+
+function drawChart(id, type, data, extra){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id).getContext('2d'), { type, data, options: Object.assign({responsive:true, maintainAspectRatio:true}, extra||{}) });
+}
+
+Chart.defaults.font.family = "'Montserrat', sans-serif";
+Chart.defaults.color = '#6B7080';
+
+function resetFilters(){ ['fMes','fMotorista','fCidade','fCausa','fCliente'].forEach(id=>document.getElementById(id).value=''); render(); }
+function ligarFiltros(){
+  ['fMes','fMotorista','fCidade','fCausa'].forEach(id=>document.getElementById(id).addEventListener('change', render));
+  document.getElementById('fCliente').addEventListener('input', render);
+}
+
+// ---------- registrar / excluir ----------
+function openModal(){ document.getElementById('modalBg').classList.add('show'); document.getElementById('mData').valueAsDate = new Date(); }
+function closeModal(){
+  document.getElementById('modalBg').classList.remove('show');
+  ['mMotorista','mPlaca','mCliente','mCidade','mObs','mChegada','mSaida'].forEach(id=>document.getElementById(id).value='');
+}
+function showToast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3200); }
+
+async function saveRecord(){
+  const v = id => document.getElementById(id).value.trim();
+  const novo = {
+    data: v('mData'), motorista: v('mMotorista'), placa: v('mPlaca').toUpperCase(),
+    chegada: v('mChegada'), saida: v('mSaida'), cliente: v('mCliente'), cidade: v('mCidade'),
+    servico: v('mServico'), causa: v('mCausa')
+  };
+  novo.obs = v('mObs') || novo.causa.toUpperCase();
+  if(!novo.data || !novo.motorista || !novo.placa || !novo.chegada || !novo.saida || !novo.cliente || !novo.cidade){
+    showToast('Preencha todos os campos obrigatórios.'); return;
+  }
+  if(toMinutes(novo.saida) < toMinutes(novo.chegada) &&
+     !confirm('O horário de saída está antes da chegada. A espera vai ser contada como se tivesse virado o dia. Salvar mesmo assim?')) return;
+
+  const btn = document.getElementById('btnSalvar');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const { data, error } = await sb.from(TABELA).insert(novo).select().single();
+  btn.disabled = false; btn.textContent = 'Salvar registro';
+  if(error){ console.error(error); showToast('Erro ao salvar: ' + (error.message || 'tente novamente.')); return; }
+  DATA.push(doBanco(data));
+  populateFilters(); render(); closeModal();
+  showToast('Registro salvo.');
+}
+
+async function deleteRecord(id){
+  if(!confirm('Excluir este registro?')) return;
+  const { error } = await sb.from(TABELA).delete().eq('id', id);
+  if(error){ console.error(error); showToast('Erro ao excluir: ' + (error.message || 'tente novamente.')); return; }
+  DATA = DATA.filter(d=>d.id!==id);
+  populateFilters(); render();
+  showToast('Registro excluído.');
+}
+
+// ---------- exportar ----------
+function exportJSON(){
+  const limpo = DATA.map(({virouDia, ...r})=>r);
+  downloadBlob(new Blob([JSON.stringify(limpo, null, 2)], {type:'application/json'}), 'coletas_improdutivas.json');
+}
+function exportCSV(){
+  const headers = ['Data','Motorista','Placa','Chegada','Saída','Espera(min)','Cliente','Cidade','Serviço','Causa','Observação'];
+  const rows = DATA.map(d=>[d.data,d.motorista,d.placa,d.chegada,d.saida,d.espera,d.cliente,d.cidade,d.servico,d.causa,d.obs]);
+  const csv = [headers.join(';'), ...rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';'))].join('\n');
+  downloadBlob(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}), 'coletas_improdutivas.csv');
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+// ---------- início ----------
+document.getElementById('login-senha').addEventListener('keydown', e=>{ if(e.key==='Enter') fazerLogin(); });
+(async function(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session) iniciarApp(); else mostrarLogin();
+})();
+</script>
+</body>
+</html>
