@@ -635,15 +635,46 @@ function enterApp() {
   document.getElementById('userName').textContent = CURRENT_USER.fullName || CURRENT_USER.username;
   document.getElementById('userRole').textContent = CURRENT_USER.role === 'admin' ? 'Administrador' : 'Usuário';
   document.getElementById('navUsuarios').style.display = CURRENT_USER.role === 'admin' ? '' : 'none';
+  ajustarMenuVisitante(false);
   route('dashboard');
 }
 
-document.getElementById('logoutBtn').addEventListener('click', async function() {
-  await sb.auth.signOut();
-  CURRENT_USER = null;
+/* ---------- modo visitante: vê o dashboard sem login; editar/importar exige login ---------- */
+function ajustarMenuVisitante(ehVisitante) {
+  ['registros', 'importar'].forEach(function(v) {
+    var a = document.querySelector('#navMenu a[data-view="' + v + '"]');
+    if (a) a.style.display = ehVisitante ? 'none' : '';
+  });
+  if (ehVisitante) document.getElementById('navUsuarios').style.display = 'none';
+  document.getElementById('logoutBtn').textContent = ehVisitante ? 'Entrar (editar/importar)' : 'Sair';
+}
+function entrarComoVisitante() {
+  CURRENT_USER = { id: null, username: 'visitante', role: 'visitante', fullName: 'Visitante' };
+  loginWrap.classList.add('hidden');
+  appShell.classList.add('visible');
+  document.getElementById('userName').textContent = 'Visitante';
+  document.getElementById('userRole').textContent = 'Somente visualização';
+  ajustarMenuVisitante(true);
+  route('dashboard');
+}
+function mostrarTelaLogin() {
   appShell.classList.remove('visible');
   loginWrap.classList.remove('hidden');
+  if (!document.getElementById('linkVisitante')) {
+    var link = document.createElement('a');
+    link.id = 'linkVisitante'; link.href = '#';
+    link.textContent = 'Voltar e ver sem login';
+    link.style.cssText = 'display:block;text-align:center;margin-top:14px;font-size:13px;cursor:pointer;';
+    link.addEventListener('click', function(e) { e.preventDefault(); entrarComoVisitante(); });
+    loginForm.parentNode.appendChild(link);
+  }
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async function() {
+  if (CURRENT_USER && CURRENT_USER.role === 'visitante') { mostrarTelaLogin(); return; }
+  await sb.auth.signOut();
   pwInput.value = '';
+  entrarComoVisitante();
 });
 
 document.getElementById('navMenu').addEventListener('click', function(e) {
@@ -798,6 +829,7 @@ function compactBarHeight(n) {
 
 function route(view) {
   if (view === 'usuarios' && CURRENT_USER.role !== 'admin') view = 'dashboard';
+  if (CURRENT_USER.role === 'visitante') view = 'dashboard';
   document.querySelectorAll('#navMenu a').forEach(function(a) { a.classList.toggle('active', a.dataset.view === view); });
   pageTitle.textContent = TITLES[view];
   destroyCharts();
@@ -1975,7 +2007,10 @@ function openNewUserModal() {
 }
 
 /* ---------- boot ---------- */
-tryAutoLogin();
+(async function() {
+  var logado = await tryAutoLogin();
+  if (!logado) entrarComoVisitante();
+})();
 </script>
 </body>
 </html>

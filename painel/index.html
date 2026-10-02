@@ -105,7 +105,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <body>
 
 <!-- LOGIN SCREEN -->
-<div class="login-bg" id="loginScreen">
+<div class="login-bg" id="loginScreen" style="display:none">
   <div class="login-box">
     <div class="logo">B</div>
     <h2>Painel Operacional</h2>
@@ -117,7 +117,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 
 <!-- DASHBOARD -->
-<div id="app" style="display:none">
+<div id="app" style="display:block">
   <div class="hdr">
     <div class="hdr-l"><div class="hdr-logo">B</div><div><h1>Painel Operacional — Programação</h1><p>Brudam Logística • 2026</p></div></div>
     <div class="hdr-r"><div class="mf" id="mFilter"></div><div class="hdr-badge" id="refreshBadge" onclick="fetchData()" style="cursor:pointer">↻ Atualizar</div><div class="hdr-badge">Foco Preventivo</div></div>
@@ -572,6 +572,10 @@ function initCharts(D){
 function getWeek(d){const onejan=new Date(d.getFullYear(),0,1);return Math.ceil(((d-onejan)/86400000+onejan.getDay()+1)/7)}
 
 rMF();
+
+// Acesso sem PIN (dentro do portal PortoEX Dados Operacionais)
+fetchData();
+setInterval(fetchData, CONFIG.REFRESH_INTERVAL * 60000);
 </script>
 </body>
 </html>
