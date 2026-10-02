@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PortoEX Dados Operacionais</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0B0B3C;
+    --navy-2:#17175a;
+    --orange:#FF6428;
+    --soft:#c7cae8;
+    --bg:#F3F4F8;
+    --line:rgba(255,255,255,.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; height:100%;}
+  body{
+    display:flex; flex-direction:column;
+    background:var(--bg);
+    font-family:'Montserrat', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .topbar{
+    background:var(--navy);
+    color:#fff;
+    border-bottom:4px solid var(--orange);
+    padding:0 clamp(14px,3vw,36px);
+    padding-top:env(safe-area-inset-top,0px);
+    flex:0 0 auto;
+  }
+  .topbar-row{
+    display:flex; align-items:center; justify-content:space-between; gap:18px;
+    padding:14px 0 10px;
+  }
+  .brand{display:flex; align-items:center; gap:16px; min-width:0;}
+  .brand img{height:44px; width:auto; display:block;}
+  .brand .divider{width:1px; height:30px; background:var(--line);}
+  .brand h1{
+    margin:0; font-size:18px; font-weight:700; letter-spacing:-0.01em; white-space:nowrap;
+  }
+  .brand h1 span{display:block; font-family:'Poppins',sans-serif; font-size:12px; font-weight:400; color:var(--soft); letter-spacing:0;}
+
+  .actions{display:flex; align-items:center; gap:10px;}
+  .btn-out{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:7px 12px; border:1px solid rgba(255,255,255,.3); border-radius:4px;
+    color:var(--soft); text-decoration:none; font-size:12.5px; font-weight:600; white-space:nowrap;
+  }
+  .btn-out:hover{border-color:#fff; color:#fff;}
+  .btn-out:focus-visible, .tab:focus-visible{outline:2px solid var(--orange); outline-offset:2px;}
+  .btn-out svg{width:14px; height:14px;}
+
+  .tabs{
+    display:flex; gap:4px; overflow-x:auto; scrollbar-width:none;
+    margin:0 calc(-1 * clamp(14px,3vw,36px)); padding:0 clamp(14px,3vw,36px);
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    position:relative;
+    background:none; border:none; cursor:pointer;
+    padding:12px 14px 13px;
+    font-family:inherit; font-size:13.5px; font-weight:600;
+    color:var(--soft); white-space:nowrap;
+    border-radius:4px 4px 0 0;
+  }
+  .tab:hover{color:#fff; background:rgba(255,255,255,.05);}
+  .tab[aria-selected="true"]{color:#fff; background:var(--navy-2);}
+  .tab[aria-selected="true"]::after{
+    content:""; position:absolute; left:0; right:0; bottom:-4px; height:4px; background:#fff;
+  }
+
+  main{flex:1 1 auto; position:relative; min-height:0;}
+  .frame{
+    position:absolute; inset:0; width:100%; height:100%; border:0; display:none; background:var(--bg);
+  }
+  .frame.active{display:block;}
+  .loading{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    color:#6B7080; font-size:14px; font-family:'Poppins',sans-serif;
+  }
+  .loading.show{display:flex;}
+
+  @media (max-width:640px){
+    .brand img{height:34px;}
+    .brand .divider{display:none;}
+    .brand h1{font-size:15px;}
+    .brand h1 span{display:none;}
+    .btn-out .txt{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <img src="assets/logo-branco.png" alt="PortoEX">
+      <div class="divider"></div>
+      <h1>Dados Operacionais<span id="sub">Veículos voltando vazios</span></h1>
+    </div>
+    <div class="actions">
+      <a class="btn-out" id="openNew" href="vazios/" target="_blank" rel="noopener" title="Abrir este painel em uma aba separada">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+        <span class="txt">Abrir em nova aba</span>
+      </a>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+</header>
+
+<main id="stage">
+  <div class="loading" id="loading">Carregando painel…</div>
+</main>
+
+<script>
+  // Cada aba aponta para a pasta do painel dentro deste mesmo site.
+  // Para incluir um novo painel: crie a pasta com o index.html e adicione uma linha aqui.
+  const PAINEIS = [
+    { id:'vazios',    nome:'Veículos voltando vazios', pasta:'vazios/' },
+    { id:'expressos', nome:'Liberação dos expressos',  pasta:'expressos/' },
+    { id:'painel',    nome:'Painel operacional',       pasta:'painel/' },
+    { id:'coletas',   nome:'Coletas improdutivas',     pasta:'coletas/' },
+    { id:'dashboard', nome:'PortoExpress Dashboard',   pasta:'dashboard/' },
+  ];
+
+  const tabsEl = document.getElementById('tabs');
+  const stage = document.getElementById('stage');
+  const loading = document.getElementById('loading');
+  const frames = {};
+
+  PAINEIS.forEach(p=>{
+    const b = document.createElement('button');
+    b.className = 'tab'; b.role = 'tab'; b.id = 'tab-'+p.id;
+    b.textContent = p.nome;
+    b.setAttribute('aria-selected','false');
+    b.onclick = ()=>{ location.hash = p.id; };
+    tabsEl.appendChild(b);
+  });
+
+  function abrir(id){
+    const p = PAINEIS.find(x=>x.id===id) || PAINEIS[0];
+    // Carrega o painel só na primeira vez; depois ele fica aberto em segundo plano
+    if(!frames[p.id]){
+      const f = document.createElement('iframe');
+      f.className = 'frame'; f.title = p.nome; f.src = p.pasta;
+      loading.classList.add('show');
+      f.addEventListener('load', ()=>{ if(frames[atual]===f) loading.classList.remove('show'); f.dataset.ok='1'; });
+      stage.appendChild(f);
+      frames[p.id] = f;
+    } else {
+      loading.classList.toggle('show', !frames[p.id].dataset.ok);
+    }
+    atual = p.id;
+    Object.entries(frames).forEach(([k,f])=>f.classList.toggle('active', k===p.id));
+    document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.id==='tab-'+p.id));
+    document.getElementById('tab-'+p.id).scrollIntoView({block:'nearest', inline:'nearest'});
+    document.getElementById('sub').textContent = p.nome;
+    document.getElementById('openNew').href = p.pasta;
+    document.title = p.nome + ' · PortoEX Dados Operacionais';
+  }
+
+  let atual = null;
+  window.addEventListener('hashchange', ()=>abrir(location.hash.slice(1)));
+  abrir(location.hash.slice(1));
+</script>
+</body>
+</html>
