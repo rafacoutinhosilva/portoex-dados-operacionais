@@ -114,6 +114,7 @@ tr:last-child td{border-bottom:0}
       <div class="card"><h3>Dias de expresso por cliente</h3><p class="sub" id="s-cli"></p><div class="chart"><canvas id="chCli"></canvas></div></div>
       <div class="card"><h3>Carreta ou truck</h3><p class="sub" id="s-vei"></p><div class="chart pie"><canvas id="chVei"></canvas></div><div class="pielegend" id="lgVei"></div></div>
     </div>
+    <div class="card" style="margin-bottom:14px"><h3>Média de horários nos clientes</h3><p class="sub" id="s-hcli"></p><div class="chart" id="boxHcli"><canvas id="chHcli"></canvas></div></div>
     <div class="grid eq">
       <div class="card"><h3>Top 10 · liberado da base mais tarde</h3><p class="sub">Depois da meia-noite conta como o mesmo dia</p><div class="tbl" id="topLib"></div></div>
       <div class="card"><h3>Top 10 · chegada na base mais tarde</h3><p class="sub">Retorno do cliente para a base</p><div class="tbl" id="topBase"></div></div>
@@ -162,6 +163,7 @@ const toMin=s=>{if(!s||typeof s!=='string')return null;const m=s.match(/^(\d{1,2
 const late=v=>v==null?null:(v<360?v+1440:v);
 const fm=v=>{if(v==null||isNaN(v))return'—';v=Math.round(v);const h=Math.floor(v/60)%24,m=v%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')};
 const avg=a=>{a=a.filter(x=>x!=null&&!isNaN(x));return a.length?a.reduce((s,x)=>s+x,0)/a.length:null};
+const fd=v=>{if(v==null||isNaN(v))return'—';v=Math.round(v);return Math.floor(v/60)+'h'+String(v%60).padStart(2,'0')};
 const fdate=d=>{const[y,m,dd]=d.split('-');return dd+'/'+m};
 const fdateL=d=>{const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y};
 const WD=['dom','seg','ter','qua','qui','sex','sáb'];
@@ -210,6 +212,42 @@ function renderDash(){
   put('chVei',{type:'doughnut',data:{labels:vv.map(x=>x[0]),datasets:[{data:vv.map(x=>x[1]),backgroundColor:vv.map((x,i)=>css(pal[i%4])),borderColor:css('--surface'),borderWidth:3}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'0%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+c.parsed+' ('+Math.round(c.parsed/tot*100)+'%)'}}}}});
   $('#lgVei').innerHTML=vv.map((x,i)=>`<div style="--c:var(${pal[i%4]})"><i></i>${esc(x[0])} <b>${x[1]}</b> <span style="color:var(--muted)">${Math.round(x[1]/tot*100)}%</span></div>`).join('');
+
+  // 2b. média de horários nos clientes (chegada -> saída)
+  // Mesma regra do restante do painel: horário antes das 06:00 conta como madrugada do dia seguinte.
+  const hc=new Map(),aCh=[],aSa=[],aPm=[];
+  er.forEach(r=>(r.coletas||[]).forEach(c=>{
+    if(!c.cliente)return;
+    const ch=late(toMin(c.chegada)),sa=late(toMin(c.saida));
+    if(ch==null&&sa==null)return;
+    if(!hc.has(c.cliente))hc.set(c.cliente,{ch:[],sa:[],pm:[]});
+    const o=hc.get(c.cliente);
+    if(ch!=null){o.ch.push(ch);aCh.push(ch)}
+    if(sa!=null){o.sa.push(sa);aSa.push(sa)}
+    if(ch!=null&&sa!=null&&sa-ch>=0&&sa-ch<=960){o.pm.push(sa-ch);aPm.push(sa-ch)}
+  }));
+  const hl=[...hc.entries()].map(([n,o])=>({n,ch:avg(o.ch),sa:avg(o.sa),pm:avg(o.pm),qc:o.ch.length,qs:o.sa.length}))
+    .sort((a,b)=>(a.ch??a.sa)-(b.ch??b.sa));
+  if(!hl.length){
+    if(charts.chHcli){charts.chHcli.destroy();delete charts.chHcli}
+    $('#boxHcli').style.display='none';
+    $('#s-hcli').textContent='Sem horários de chegada ou saída lançados no período.';
+  }else{
+    $('#boxHcli').style.display='';
+    $('#boxHcli').style.height=Math.max(170,hl.length*30+80)+'px';
+    $('#s-hcli').textContent=`Geral: chegada média ${fm(avg(aCh))} · saída média ${fm(avg(aSa))} · permanência média ${fd(avg(aPm))} · ${aCh.length} chegadas e ${aSa.length} saídas lançadas. Cada barra vai da chegada média à saída média do cliente.`;
+    const ini=hl.map(x=>x.ch??x.sa),fim=hl.map(x=>x.sa??x.ch);
+    const o2=baseOpts();o2.indexAxis='y';
+    o2.scales.x.min=Math.floor((Math.min(...ini)-60)/60)*60;o2.scales.x.max=Math.ceil((Math.max(...fim)+60)/60)*60;
+    o2.scales.x.grid={color:css('--line')};o2.scales.x.ticks.callback=v=>fm(v);o2.scales.x.ticks.stepSize=60;
+    o2.scales.y.grid={display:false};
+    o2.plugins.tooltip={callbacks:{title:c=>hl[c[0].dataIndex].n,label:c=>{const d=hl[c.dataIndex];return['Chegada média: '+fm(d.ch)+' ('+d.qc+' lançamentos)','Saída média: '+fm(d.sa)+' ('+d.qs+' lançamentos)','Permanência média: '+fd(d.pm)]}}};
+    put('chHcli',{type:'bar',data:{labels:hl.map(x=>x.n),datasets:[{data:hl.map((x,i)=>[ini[i],fim[i]]),backgroundColor:css('--c1'),borderRadius:4,borderSkipped:false,minBarLength:6,maxBarThickness:18}]},options:o2,
+      plugins:[{id:'lblh',afterDatasetsDraw(ch){const{ctx}=ch;ctx.save();ctx.fillStyle=css('--ink');ctx.font='600 12px Poppins';ctx.textBaseline='middle';
+        ch.getDatasetMeta(0).data.forEach((b,i)=>{const p=b.getProps(['x','base','y'],true),a=Math.min(p.x,p.base),z=Math.max(p.x,p.base);
+          if(hl[i].ch!=null){ctx.textAlign='right';ctx.fillText(fm(hl[i].ch),a-6,p.y)}
+          if(hl[i].sa!=null){ctx.textAlign='left';ctx.fillText(fm(hl[i].sa),z+6,p.y)}});ctx.restore();}}]});
+  }
 
   // 3. top 10 liberado mais tarde
   const tl=er.map(r=>({r,v:late(toMin(r.liberado))})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v).slice(0,10);
