@@ -866,9 +866,20 @@ async function presetRange(preset) {
 
 /* ================= DASHBOARD ================= */
 async function fetchAllRecords() {
-  var { data, error } = await sb.from('records').select('*');
-  if (error) { console.error('Erro ao buscar registros:', error); return []; }
-  return data || [];
+  // O Supabase devolve no máximo 1000 linhas por consulta. Antes o painel fazia uma
+  // consulta só, então tudo que passava de 1000 registros (justamente os mais recentes)
+  // ficava de fora dos números. Agora busca em blocos de 1000 até trazer tudo.
+  var todos = [], de = 0, passo = 1000;
+  while (true) {
+    var { data, error } = await sb.from('records').select('*')
+      .order('data_iso', { ascending: true }).order('id', { ascending: true })
+      .range(de, de + passo - 1);
+    if (error) { console.error('Erro ao buscar registros:', error); return todos; }
+    todos = todos.concat(data || []);
+    if (!data || data.length < passo) break;
+    de += passo;
+  }
+  return todos;
 }
 
 async function filterRecords(f) {
@@ -1659,24 +1670,7 @@ function parseAtsRows(rows) {
 }
 
 async function upsertRecords(parsedRecords, filename) {
-  if (parsedRecords.length === 0) return { total: 0, novos: 0, atualizados: 0, removidos: 0, repetidas: 0, exemplosRepetidas: [] };
-
-  // O banco nao aceita duas linhas com a mesma chave (motorista + matricula + data) no mesmo
-  // envio ("ON CONFLICT DO UPDATE command cannot affect row a second time"). Se o CSV vier
-  // com linhas repetidas, fica a ultima de cada chave e a gente avisa na tela.
-  var porChave = {}, ordemChaves = [], repetidas = 0, exemplosRepetidas = [];
-  parsedRecords.forEach(function(pr) {
-    var k = pr.condutor + '|' + pr.matricula + '|' + pr.data;
-    if (porChave.hasOwnProperty(k)) {
-      repetidas++;
-      var ex = pr.condutor + ' em ' + pr.data;
-      if (exemplosRepetidas.length < 5 && exemplosRepetidas.indexOf(ex) === -1) exemplosRepetidas.push(ex);
-    } else {
-      ordemChaves.push(k);
-    }
-    porChave[k] = pr;
-  });
-  parsedRecords = ordemChaves.map(function(k) { return porChave[k]; });
+  if (parsedRecords.length === 0) return { total: 0, novos: 0, atualizados: 0, removidos: 0 };
 
   var minIso = parsedRecords.reduce(function(m, r) { return r.data_iso < m ? r.data_iso : m; }, parsedRecords[0].data_iso);
   var maxIso = parsedRecords.reduce(function(m, r) { return r.data_iso > m ? r.data_iso : m; }, parsedRecords[0].data_iso);
@@ -1741,7 +1735,7 @@ async function upsertRecords(parsedRecords, filename) {
     total: parsedRecords.length, novos: novos, atualizados: atualizados, removidos: removidos,
   });
 
-  return { total: parsedRecords.length, novos: novos, atualizados: atualizados, removidos: removidos, repetidas: repetidas, exemplosRepetidas: exemplosRepetidas };
+  return { total: parsedRecords.length, novos: novos, atualizados: atualizados, removidos: removidos };
 }
 
 async function fetchCityRegions() {
@@ -1867,9 +1861,7 @@ function handleFile(file) {
               '<div class="row"><span>Registros novos</span><b>' + summary.novos + '</b></div>' +
               '<div class="row"><span>Registros atualizados</span><b>' + summary.atualizados + '</b></div>' +
               (summary.removidos > 0 ? '<div class="row"><span>Registros removidos (não existem mais no arquivo)</span><b>' + summary.removidos + '</b></div>' : '') +
-              (summary.repetidas > 0 ? '<div class="row"><span>Linhas repetidas no arquivo (mantida a última de cada)</span><b>' + summary.repetidas + '</b></div>' : '') +
             '</div>' +
-            (summary.repetidas > 0 ? '<div class="alert alert-warn mt-16">O arquivo tinha ' + summary.repetidas + ' linha(s) repetida(s) (mesmo motorista, matrícula e data), então foi considerada só a última de cada. Exemplos: ' + escapeHtml(summary.exemplosRepetidas.join('; ')) + '. Vale conferir no ATS.</div>' : '') +
             (parsed.errors.length ? '<div class="alert alert-warn mt-16">' + parsed.errors.length + ' linha(s) ignorada(s).</div>' : '');
         } catch (err) {
           resultBox.innerHTML = '<div class="alert alert-error mt-16">' + err.message + '</div>';
