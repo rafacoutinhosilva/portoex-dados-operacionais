@@ -1669,7 +1669,29 @@ function parseAtsRows(rows) {
   return { records: results, errors: errors };
 }
 
+// O ATS às vezes manda duas linhas do mesmo motorista no mesmo dia (ex.: jornada que
+// passou da meia-noite e virou um pedacinho no dia seguinte). O banco só aceita uma linha
+// por motorista/dia, então juntamos as duas: soma as horas e fica com o menor descanso.
+function consolidarDuplicados(records) {
+  var porChave = {}, ordem = [];
+  records.forEach(function(r) {
+    var key = r.condutor + '|' + r.matricula + '|' + r.data;
+    var a = porChave[key];
+    if (!a) { porChave[key] = Object.assign({}, r); ordem.push(key); return; }
+    a.horas_normais_min += r.horas_normais_min;
+    a.horas_extras_min += r.horas_extras_min;
+    a.jornada_diaria_min += r.jornada_diaria_min;
+    a.jornada_total_min = (a.jornada_total_min || 0) + (r.jornada_total_min || 0);
+    a.jornada_normal_min = Math.max(a.jornada_normal_min, r.jornada_normal_min);
+    if (r.interjornada_min !== null && (a.interjornada_min === null || r.interjornada_min < a.interjornada_min)) a.interjornada_min = r.interjornada_min;
+    a.estourou_12h = a.jornada_diaria_min > 12 * 60;
+    a.interjornada_violada = a.interjornada_min !== null && a.interjornada_min < 11 * 60;
+  });
+  return ordem.map(function(k) { return porChave[k]; });
+}
+
 async function upsertRecords(parsedRecords, filename) {
+  parsedRecords = consolidarDuplicados(parsedRecords);
   if (parsedRecords.length === 0) return { total: 0, novos: 0, atualizados: 0, removidos: 0 };
 
   var minIso = parsedRecords.reduce(function(m, r) { return r.data_iso < m ? r.data_iso : m; }, parsedRecords[0].data_iso);
